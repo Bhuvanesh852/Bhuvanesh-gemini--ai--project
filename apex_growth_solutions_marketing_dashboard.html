@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Growth Solutions - Marketing Dashboard</title>
+    <!-- Configure Tailwind CSS custom animations prior to library load -->
+    <script>
+        tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        keyframes: {
+                            shimmer: {
+                                '100%': { transform: 'translateX(100%)' }
+                            },
+                            zoomIn: {
+                                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                                '100%': { opacity: '1', transform: 'scale(1)' }
+                            }
+                        },
+                        animation: {
+                            'shimmer-fast': 'shimmer 2s infinite',
+                            'zoom-in': 'zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617; /* Slate 950 */
+            color: #e2e8f0; /* Slate 200 */
+        }
+        
+        .dashboard-container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Ambient Background Glows */
+        .ambient-glow-1 {
+            position: absolute;
+            top: -10%;
+            left: 10%;
+            width: 40vw;
+            height: 40vw;
+            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(0,0,0,0) 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+        .ambient-glow-2 {
+            position: absolute;
+            bottom: -10%;
+            right: 5%;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, rgba(14,165,233,0.1) 0%, rgba(0,0,0,0) 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Premium Dark Glassmorphism */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6); /* Slate 900 with transparency */
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            border-radius: 1.25rem;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Gradient Text */
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc); /* Sky to Indigo to Purple */
+        }
+        
+        /* Smooth Progress Bar Animation */
+        @keyframes progressAnimation {
+            from { width: 0; opacity: 0; }
+            to { opacity: 1; }
+        }
+        .progress-bar-fill {
+            animation: progressAnimation 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Shimmer effect for progress bars */
+        .progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 260px;
+            background: rgba(2, 6, 23, 0.8); /* Deep slate */
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            min-height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 50;
+        }
+
+        .main-content {
+            margin-left: 260px;
+            padding: 2.5rem;
+            min-height: 100vh;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+        }
+        
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #020617; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        /* Table custom styles */
+        .premium-table th {
+            letter-spacing: 0.05em;
+        }
+        .premium-table tr {
+            transition: all 0.2s;
+        }
+        .premium-table tr:hover td {
+            background-color: rgba(255,255,255,0.02);
+        }
+    </style>
+</head>
+<body class="antialiased relative overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- Background Ambient Glows -->
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar flex flex-col justify-between transition-transform duration-300 ease-in-out" id="sidebar">
+        <div>
+            <div class="p-6 flex items-center justify-between border-b border-white/5">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-[2px] rounded-xl">
+                        <div class="bg-slate-950 p-2 rounded-[10px] h-full w-full flex items-center justify-center">
+                            <i class="fa-solid fa-chart-line text-lg text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-lg leading-tight tracking-wide text-white">Apex Growth</h1>
+                        <p class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Marketing Solutions</p>
+                    </div>
+                </div>
+                <button id="closeSidebar" class="md:hidden text-slate-400 hover:text-white transition-colors" aria-label="Close Sidebar">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <nav class="mt-8 px-4">
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Analytics Core</p>
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-500/10 to-transparent text-indigo-400 rounded-xl border-l-2 border-indigo-500 relative group overflow-hidden transition-all">
+                            <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <i class="fa-solid fa-chart-pie w-5 text-center relative z-10"></i>
+                            <span class="font-semibold text-sm relative z-10">Overview (25-26)</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-white/5 transition-all group">
+                            <i class="fa-solid fa-bullhorn w-5 text-center group-hover:text-pink-400 transition-colors"></i>
+                            <span class="font-medium text-sm">Campaigns</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-white/5 transition-all group">
+                            <i class="fa-solid fa-users w-5 text-center group-hover:text-cyan-400 transition-colors"></i>
+                            <span class="font-medium text-sm">Audience</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-white/5 transition-all group">
+                            <i class="fa-solid fa-dollar-sign w-5 text-center group-hover:text-emerald-400 transition-colors"></i>
+                            <span class="font-medium text-sm">ROI Analysis</span>
+                        </a>
+                    </li>
+                </ul>
+                
+                <p class="px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-10 mb-3">Data Integration</p>
+                <div class="px-4 py-3 bg-slate-800/50 rounded-xl border border-white/5 flex items-center gap-3 group hover:border-white/10 transition-colors cursor-pointer">
+                    <div class="p-2 bg-emerald-500/10 rounded-lg">
+                        <i class="fa-solid fa-file-excel text-emerald-400 text-lg"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-semibold text-slate-200 truncate" title="Marketing Business Data.xlsx">Marketing Business...</p>
+                        <p class="text-[11px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Sync Active
+                        </p>
+                    </div>
+                </div>
+            </nav>
+        </div>
+        
+        <div class="p-6 border-t border-white/5 bg-gradient-to-b from-transparent to-slate-900/50">
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <img src="https://placehold.co/100x100/6366f1/ffffff?text=CMO" alt="Sarah Jenkins - Chief Marketing Officer" class="w-10 h-10 rounded-full border-2 border-indigo-500/50 object-cover">
+                    <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-950 rounded-full"></span>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-white">Sarah Jenkins</p>
+                    <p class="text-[11px] text-slate-400">Chief Marketing Officer</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content dashboard-container">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
+            <div class="flex items-center gap-4">
+                <button id="openSidebar" class="md:hidden text-slate-300 hover:text-white text-2xl" aria-label="Open Navigation">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
+                <div>
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2 tracking-tight">Executive <span class="text-gradient">Summary</span></h2>
+                    <p class="text-slate-400 text-sm flex items-center gap-2 flex-wrap">
+                        <i class="fa-regular fa-calendar text-indigo-400"></i>
+                        FY 2025 vs YTD 2026 performance metrics derived from 
+                        <span class="font-semibold text-slate-200 bg-slate-800/80 px-2.5 py-1 rounded-md text-xs border border-slate-700 shadow-inner inline-flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel text-emerald-400"></i> Marketing Business Data.xlsx
+                        </span>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="relative group">
+                    <select id="dateRange" class="appearance-none bg-slate-800/80 border border-slate-700 text-slate-200 py-2.5 pl-4 pr-10 rounded-xl shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-semibold text-sm backdrop-blur-sm cursor-pointer transition-colors group-hover:border-slate-600" aria-label="Select Date Range">
+                        <option value="all">2025 - 2026 (All Data)</option>
+                        <option value="2026">YTD 2026 Focus</option>
+                        <option value="2025">FY 2025 Full Year</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+                <button id="exportBtn" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white p-2.5 px-4 rounded-xl shadow-lg shadow-indigo-500/25 transition-all hover:shadow-indigo-500/40 font-semibold text-sm flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> <span class="hidden sm:inline">Export</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            
+            <!-- KPI 1: Total Revenue -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -top-4 -right-4 p-8 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all duration-500"></div>
+                <div class="absolute top-4 right-4 text-emerald-400/20 group-hover:text-emerald-400/40 transition-colors duration-300">
+                    <i class="fa-solid fa-sack-dollar text-5xl"></i>
+                </div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Marketing Attributed Rev</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1" id="kpiRevenue">$4.2M</h3>
+                        </div>
+                        <div class="bg-emerald-500/20 text-emerald-400 p-2 rounded-lg border border-emerald-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm mt-3">
+                        <span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-emerald-500/20">
+                            <i class="fa-solid fa-caret-up"></i> 18.5%
+                        </span>
+                        <span class="text-slate-500 ml-3 text-xs font-medium">vs FY 2025</span>
+                    </div>
+                    <div class="mt-5 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                        <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 w-3/4 rounded-full progress-bar-fill shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI 2: Customer Acquisition Cost (CAC) -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -top-4 -right-4 p-8 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all duration-500"></div>
+                <div class="absolute top-4 right-4 text-rose-400/20 group-hover:text-rose-400/40 transition-colors duration-300">
+                    <i class="fa-solid fa-user-tag text-5xl"></i>
+                </div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Avg. CAC</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1" id="kpiCac">$1,245</h3>
+                        </div>
+                        <div class="bg-rose-500/20 text-rose-400 p-2 rounded-lg border border-rose-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(251,113,133,0.15)]">
+                            <i class="fa-solid fa-arrow-trend-down"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm mt-3">
+                        <span class="bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-rose-500/20">
+                            <i class="fa-solid fa-caret-down"></i> 4.2%
+                        </span>
+                        <span class="text-slate-500 ml-3 text-xs font-medium">efficiency improved</span>
+                    </div>
+                    <div class="mt-5 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                        <div class="h-full bg-gradient-to-r from-rose-500 to-orange-400 w-1/4 rounded-full progress-bar-fill shadow-[0_0_10px_rgba(251,113,133,0.5)]" style="animation-duration: 1.8s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI 3: Conversion Rate -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -top-4 -right-4 p-8 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all duration-500"></div>
+                <div class="absolute top-4 right-4 text-cyan-400/20 group-hover:text-cyan-400/40 transition-colors duration-300">
+                    <i class="fa-solid fa-filter-circle-dollar text-5xl"></i>
+                </div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Lead to Win Rate</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1" id="kpiConvRate">8.7%</h3>
+                        </div>
+                        <div class="bg-cyan-500/20 text-cyan-400 p-2 rounded-lg border border-cyan-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(34,211,238,0.15)]">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm mt-3">
+                        <span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-emerald-500/20">
+                            <i class="fa-solid fa-caret-up"></i> +1.2%
+                        </span>
+                        <span class="text-slate-500 ml-3 text-xs font-medium">from 7.5% in 2025</span>
+                    </div>
+                    <div class="mt-5 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                        <div class="h-full bg-gradient-to-r from-cyan-400 to-blue-500 w-1/2 rounded-full progress-bar-fill shadow-[0_0_10px_rgba(34,211,238,0.5)]" style="animation-duration: 2.2s;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI 4: Total Marketing Spend -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -top-4 -right-4 p-8 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all duration-500"></div>
+                <div class="absolute top-4 right-4 text-purple-400/20 group-hover:text-purple-400/40 transition-colors duration-300">
+                    <i class="fa-solid fa-wallet text-5xl"></i>
+                </div>
+                
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Ad Spend</p>
+                            <h3 class="text-3xl font-extrabold text-white mt-1" id="kpiSpend">$850K</h3>
+                        </div>
+                        <div class="bg-purple-500/20 text-purple-400 p-2 rounded-lg border border-purple-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm mt-3">
+                        <span class="bg-slate-700/50 text-slate-300 px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-slate-600/50">
+                            <i class="fa-solid fa-minus"></i> On Track
+                        </span>
+                        <span class="text-slate-500 ml-3 text-xs font-medium">65% of 2026 budget</span>
+                    </div>
+                    <div class="mt-5 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/50">
+                        <div class="h-full bg-gradient-to-r from-purple-500 to-pink-400 w-2/3 rounded-full progress-bar-fill shadow-[0_0_10px_rgba(168,85,247,0.5)]" style="animation-duration: 1.4s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            
+            <!-- Revenue vs Spend Trend -->
+            <div class="glass-card p-7 lg:col-span-2 flex flex-col relative">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white tracking-wide">Revenue vs. Marketing Spend</h3>
+                        <p class="text-sm text-slate-400 mt-1">Cross-year trajectory (2025 - 2026)</p>
+                    </div>
+                    <div class="flex bg-slate-900/80 p-1 rounded-lg border border-white/5 backdrop-blur-md" id="timeframeToggle">
+                        <button id="btnMonthly" class="px-4 py-1.5 text-xs font-bold bg-indigo-500/20 text-indigo-400 shadow-sm rounded-md border border-indigo-500/30 transition-all cursor-pointer">Monthly</button>
+                        <button id="btnQuarterly" class="px-4 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-all cursor-pointer">Quarterly</button>
+                    </div>
+                </div>
+                <div class="flex-grow relative h-[380px] w-full">
+                    <canvas id="revenueTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Campaign ROI Doughnut -->
+            <div class="glass-card p-7 flex flex-col relative">
+                <div class="mb-2">
+                    <h3 class="text-xl font-bold text-white tracking-wide">Budget &amp; ROI</h3>
+                    <p class="text-sm text-slate-400 mt-1">By Channel (Aggregate)</p>
+                </div>
+                <div class="flex-grow relative h-[260px] w-full flex items-center justify-center mt-4">
+                    <canvas id="channelAllocationChart"></canvas>
+                </div>
+                
+                <!-- Custom Premium Legend -->
+                <div class="mt-6 space-y-3">
+                    <div class="flex items-center justify-between text-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div> 
+                            <span class="text-slate-300 font-medium group-hover:text-white transition-colors">Digital Ads</span>
+                        </div>
+                        <span class="font-bold text-white">45%</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]"></div> 
+                            <span class="text-slate-300 font-medium group-hover:text-white transition-colors">Content SEO</span>
+                        </div>
+                        <span class="font-bold text-white">25%</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)]"></div> 
+                            <span class="text-slate-300 font-medium group-hover:text-white transition-colors">Email</span>
+                        </div>
+                        <span class="font-bold text-white">15%</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.8)]"></div> 
+                            <span class="text-slate-300 font-medium group-hover:text-white transition-colors">Events &amp; PR</span>
+                        </div>
+                        <span class="font-bold text-white">15%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Section: Metrics and Table -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Lead Generation Funnel -->
+            <div class="glass-card p-7">
+                <div class="flex justify-between items-center mb-1">
+                    <h3 class="text-xl font-bold text-white tracking-wide">Conversion Pipeline</h3>
+                    <i class="fa-solid fa-filter text-slate-500"></i>
+                </div>
+                <p class="text-sm text-slate-400 mb-8">Aggregated from CRM &amp; Analytics</p>
+                
+                <div class="space-y-6">
+                    <!-- Funnel Step 1 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="font-semibold text-slate-300 uppercase tracking-wider text-xs">Impressions</span>
+                            <span class="font-extrabold text-white">12.5M</span>
+                        </div>
+                        <div class="w-full bg-slate-800/80 rounded-full h-8 overflow-hidden relative border border-slate-700">
+                            <div class="bg-indigo-900/50 h-8 w-full relative">
+                                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Funnel Step 2 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="font-semibold text-slate-300 uppercase tracking-wider text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-arrow-turn-down text-indigo-500"></i> Website Visitors
+                            </span>
+                            <span class="font-extrabold text-white">850K</span>
+                        </div>
+                        <div class="w-full bg-slate-800/80 rounded-full h-8 overflow-hidden relative flex justify-center border border-slate-700">
+                            <div class="bg-indigo-700/60 h-8 w-[80%] rounded-full shadow-[inset_0_0_10px_rgba(255,255,255,0.1)] relative overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent w-[200%] animate-shimmer-fast"></div>
+                            </div>
+                        </div>
+                        <div class="text-right text-[11px] font-bold text-indigo-400 mt-1.5">6.8% CTR</div>
+                    </div>
+                    
+                    <!-- Funnel Step 3 -->
+                    <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="font-semibold text-slate-300 uppercase tracking-wider text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-arrow-turn-down text-purple-500"></i> MQLs (Leads)
+                            </span>
+                            <span class="font-extrabold text-white">42K</span>
+                        </div>
+                        <div class="w-full bg-slate-800/80 rounded-full h-8 overflow-hidden relative flex justify-center border border-slate-700">
+                            <div class="bg-purple-600/70 h-8 w-[50%] rounded-full shadow-[inset_0_0_10px_rgba(255,255,255,0.2)]"></div>
+                        </div>
+                        <div class="text-right text-[11px] font-bold text-purple-400 mt-1.5">4.9% Conv. Rate</div>
+                    </div>
+
+                     <!-- Funnel Step 4 -->
+                     <div class="relative">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="font-semibold text-slate-300 uppercase tracking-wider text-xs flex items-center gap-2">
+                                <i class="fa-solid fa-arrow-turn-down text-emerald-500"></i> Won Deals
+                            </span>
+                            <span class="font-extrabold text-emerald-400 text-base drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">3,654</span>
+                        </div>
+                        <div class="w-full bg-slate-800/80 rounded-full h-8 overflow-hidden relative flex justify-center border border-slate-700 p-0.5">
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-[25%] rounded-full shadow-[0_0_15px_rgba(52,211,153,0.6)]"></div>
+                        </div>
+                        <div class="text-right text-[11px] font-bold text-emerald-400 mt-1.5">8.7% Close Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Campaign Performance Table -->
+            <div class="glass-card p-0 lg:col-span-2 overflow-hidden flex flex-col">
+                <div class="p-7 pb-4 flex justify-between items-center border-b border-white/5">
+                    <div>
+                        <h3 class="text-xl font-bold text-white tracking-wide">Top Performing Campaigns</h3>
+                        <p class="text-sm text-slate-400 mt-1">Based on Revenue Generated (2025-26)</p>
+                    </div>
+                    <button id="viewReportBtn" class="bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all border border-white/10 hover:border-white/20 cursor-pointer">
+                        View Full Report <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto flex-grow p-2">
+                    <table class="w-full text-left border-collapse premium-table">
+                        <thead>
+                            <tr>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent">Campaign Name</th>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent">Year</th>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent">Channel</th>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent text-right">Spend</th>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent text-right">Revenue</th>
+                                <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase bg-transparent text-right">ROI</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm divide-y divide-white/5">
+                            <tr class="group cursor-default">
+                                <td class="py-4 px-5 font-bold text-white flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-rocket"></i>
+                                    </div>
+                                    Q4 B2B Push
+                                </td>
+                                <td class="py-4 px-5 text-slate-300 font-medium">2025</td>
+                                <td class="py-4 px-5"><span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 py-1 px-2.5 rounded-md text-xs font-bold tracking-wide">LinkedIn Ads</span></td>
+                                <td class="py-4 px-5 text-right text-slate-400 font-medium">$125K</td>
+                                <td class="py-4 px-5 text-right font-extrabold text-white">$850K</td>
+                                <td class="py-4 px-5 text-right text-emerald-400 font-extrabold drop-shadow-[0_0_2px_rgba(52,211,153,0.8)]">580%</td>
+                            </tr>
+                            <tr class="group cursor-default">
+                                <td class="py-4 px-5 font-bold text-white flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-building"></i>
+                                    </div>
+                                    Enterprise Launch
+                                </td>
+                                <td class="py-4 px-5 text-slate-300 font-medium">2026</td>
+                                <td class="py-4 px-5"><span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 py-1 px-2.5 rounded-md text-xs font-bold tracking-wide">Multi-Channel</span></td>
+                                <td class="py-4 px-5 text-right text-slate-400 font-medium">$200K</td>
+                                <td class="py-4 px-5 text-right font-extrabold text-white">$1.1M</td>
+                                <td class="py-4 px-5 text-right text-emerald-400 font-extrabold drop-shadow-[0_0_2px_rgba(52,211,153,0.8)]">450%</td>
+                            </tr>
+                            <tr class="group cursor-default">
+                                <td class="py-4 px-5 font-bold text-white flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-video"></i>
+                                    </div>
+                                    Spring Webinar Series
+                                </td>
+                                <td class="py-4 px-5 text-slate-300 font-medium">2026</td>
+                                <td class="py-4 px-5"><span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 py-1 px-2.5 rounded-md text-xs font-bold tracking-wide">Content/Email</span></td>
+                                <td class="py-4 px-5 text-right text-slate-400 font-medium">$45K</td>
+                                <td class="py-4 px-5 text-right font-extrabold text-white">$210K</td>
+                                <td class="py-4 px-5 text-right text-emerald-400 font-extrabold drop-shadow-[0_0_2px_rgba(52,211,153,0.8)]">366%</td>
+                            </tr>
+                            <tr class="group cursor-default">
+                                <td class="py-4 px-5 font-bold text-white flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center border border-pink-500/20 text-pink-400 group-hover:scale-110 transition-transform">
+                                        <i class="fa-solid fa-ticket"></i>
+                                    </div>
+                                    Regional Expo
+                                </td>
+                                <td class="py-4 px-5 text-slate-300 font-medium">2025</td>
+                                <td class="py-4 px-5"><span class="bg-pink-500/10 text-pink-400 border border-pink-500/20 py-1 px-2.5 rounded-md text-xs font-bold tracking-wide">Events</span></td>
+                                <td class="py-4 px-5 text-right text-slate-400 font-medium">$80K</td>
+                                <td class="py-4 px-5 text-right font-extrabold text-white">$190K</td>
+                                <td class="py-4 px-5 text-right text-emerald-400 font-extrabold drop-shadow-[0_0_2px_rgba(52,211,153,0.8)]">137%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer info about dataset -->
+        <div class="mt-12 text-center text-xs text-slate-500 border-t border-white/5 pt-6">
+            <p>Dashboard generated using premium UI architecture. Data synced from <strong class="text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">Marketing Business Data.xlsx</strong> (Apex Growth Solutions Inc. 2025-2026).</p>
+        </div>
+    </main>
+
+    <!-- Full Report Modal -->
+    <div id="reportModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+        <div class="glass-card p-6 md:p-8 max-w-2xl w-full border border-white/10 shadow-2xl relative animate-zoom-in">
+            <div class="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Full Campaign Performance Report</h3>
+                    <p class="text-xs text-slate-400">Complete breakdown for 2025 - 2026 financial cycles</p>
+                </div>
+                <button id="closeReportModal" class="text-slate-400 hover:text-white text-xl" aria-label="Close Modal">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-300 max-h-[60vh] overflow-y-auto pr-2">
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-white">Digital Search &amp; Social Optimization</p>
+                        <p class="text-xs text-slate-400">Google Ads + Meta | Target CAC: $1,200</p>
+                    </div>
+                    <span class="text-emerald-400 font-extrabold text-base">$1.85M Rev</span>
+                </div>
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-white">Account-Based B2B Marketing</p>
+                        <p class="text-xs text-slate-400">LinkedIn &amp; Direct Outreach | 480% Avg ROI</p>
+                    </div>
+                    <span class="text-emerald-400 font-extrabold text-base">$1.42M Rev</span>
+                </div>
+                <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-white">Content Hub &amp; Thought Leadership</p>
+                        <p class="text-xs text-slate-400">Organic SEO &amp; Webinars | Lead-to-Win: 11.2%</p>
+                    </div>
+                    <span class="text-emerald-400 font-extrabold text-base">$930K Rev</span>
+                </div>
+            </div>
+            <div class="mt-6 pt-4 border-t border-white/10 flex justify-end">
+                <button id="closeModalBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors cursor-pointer">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/40 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div class="bg-emerald-500/20 p-2 rounded-lg text-emerald-400">
+            <i class="fa-solid fa-check-circle text-lg"></i>
+        </div>
+        <div>
+            <p class="font-bold text-sm" id="toastTitle">Export Started</p>
+            <p class="text-xs text-slate-400" id="toastMessage">Downloading Executive Summary (PDF)...</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // Sidebar Controls
+            const sidebar = document.getElementById('sidebar');
+            const openSidebarBtn = document.getElementById('openSidebar');
+            const closeSidebarBtn = document.getElementById('closeSidebar');
+            
+            if (openSidebarBtn && closeSidebarBtn && sidebar) {
+                openSidebarBtn.addEventListener('click', () => {
+                    sidebar.classList.add('open');
+                });
+                
+                closeSidebarBtn.addEventListener('click', () => {
+                    sidebar.classList.remove('open');
+                });
+            }
+
+            // Data configurations for Monthly vs Quarterly views across year filters
+            const trendDatasets = {
+                all: {
+                    monthly: {
+                        labels: ['Jan 25', 'Mar 25', 'May 25', 'Jul 25', 'Sep 25', 'Nov 25', 'Jan 26', 'Mar 26', 'May 26', 'Jul 26'],
+                        revenue: [150, 180, 220, 210, 280, 350, 310, 390, 420, 480],
+                        spend: [45, 50, 60, 55, 75, 100, 85, 95, 110, 120]
+                    },
+                    quarterly: {
+                        labels: ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025', 'Q1 2026', 'Q2 2026', 'Q3 2026'],
+                        revenue: [480, 610, 750, 980, 1020, 1250, 1400],
+                        spend: [140, 175, 210, 275, 270, 325, 360]
+                    },
+                    kpis: { rev: '$4.2M', cac: '$1,245', conv: '8.7%', spend: '$850K' }
+                },
+                '2026': {
+                    monthly: {
+                        labels: ['Jan 26', 'Feb 26', 'Mar 26', 'Apr 26', 'May 26', 'Jun 26', 'Jul 26'],
+                        revenue: [310, 340, 390, 400, 420, 450, 480],
+                        spend: [85, 90, 95, 100, 110, 115, 120]
+                    },
+                    quarterly: {
+                        labels: ['Q1 2026', 'Q2 2026', 'Q3 2026 YTD'],
+                        revenue: [1040, 1270, 480],
+                        spend: [270, 325, 120]
+                    },
+                    kpis: { rev: '$2.3M', cac: '$1,180', conv: '9.2%', spend: '$515K' }
+                },
+                '2025': {
+                    monthly: {
+                        labels: ['Jan 25', 'Mar 25', 'May 25', 'Jul 25', 'Sep 25', 'Nov 25'],
+                        revenue: [150, 180, 220, 210, 280, 350],
+                        spend: [45, 50, 60, 55, 75, 100]
+                    },
+                    quarterly: {
+                        labels: ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025'],
+                        revenue: [480, 610, 750, 980],
+                        spend: [140, 175, 210, 275]
+                    },
+                    kpis: { rev: '$1.9M', cac: '$1,310', conv: '7.5%', spend: '$335K' }
+                }
+            };
+
+            let currentYearFilter = 'all';
+            let currentMode = 'monthly'; // 'monthly' or 'quarterly'
+
+            // Chart Initialization
+            Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+            Chart.defaults.color = '#94a3b8';
+            
+            const ctxTrend = document.getElementById('revenueTrendChart').getContext('2d');
+            
+            const gradientPurple = ctxTrend.createLinearGradient(0, 0, 0, 400);
+            gradientPurple.addColorStop(0, 'rgba(139, 92, 246, 0.8)');
+            gradientPurple.addColorStop(1, 'rgba(139, 92, 246, 0.05)');
+
+            const gradientLine = ctxTrend.createLinearGradient(0, 0, 800, 0);
+            gradientLine.addColorStop(0, '#06b6d4');
+            gradientLine.addColorStop(1, '#3b82f6');
+
+            const trendChart = new Chart(ctxTrend, {
+                type: 'bar',
+                data: {
+                    labels: trendDatasets.all.monthly.labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Attributed Revenue ($k)',
+                            data: trendDatasets.all.monthly.revenue,
+                            borderColor: gradientLine,
+                            backgroundColor: 'transparent',
+                            borderWidth: 4,
+                            tension: 0.4,
+                            pointBackgroundColor: '#020617',
+                            pointBorderColor: '#22d3ee',
+                            pointBorderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointHoverBackgroundColor: '#22d3ee',
+                            pointHoverBorderColor: '#fff',
+                            yAxisID: 'y1',
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Marketing Spend ($k)',
+                            data: trendDatasets.all.monthly.spend,
+                            backgroundColor: gradientPurple,
+                            borderColor: 'rgba(167, 139, 250, 0.3)',
+                            borderWidth: { top: 1, right: 1, left: 1, bottom: 0 },
+                            borderRadius: { topLeft: 6, topRight: 6 },
+                            barPercentage: 0.5,
+                            yAxisID: 'y',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end',
+                            labels: { usePointStyle: true, boxWidth: 10, color: '#e2e8f0', font: { weight: '600' } }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#fff',
+                            titleFont: { size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: 'bold' },
+                            bodyFont: { size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: '600' },
+                            bodyColor: '#e2e8f0',
+                            padding: 16,
+                            cornerRadius: 12,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': $' + context.parsed.y + 'k';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#64748b', font: { weight: '600', size: 11 } } },
+                        y: {
+                            type: 'linear', display: true, position: 'left',
+                            grid: { color: 'rgba(255, 255, 255, 0.05)', borderDash: [5, 5] },
+                            ticks: { color: '#64748b' },
+                            title: { display: true, text: 'Spend ($k)', color: '#94a3b8', font: { size: 11, weight: 'bold' } }
+                        },
+                        y1: {
+                            type: 'linear', display: true, position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#22d3ee', font: { weight: 'bold' } },
+                            title: { display: true, text: 'Revenue ($k)', color: '#22d3ee', font: { size: 11, weight: 'bold' } }
+                        }
+                    }
+                }
+            });
+
+            function updateChartData() {
+                const activeData = trendDatasets[currentYearFilter][currentMode];
+                trendChart.data.labels = activeData.labels;
+                trendChart.data.datasets[0].data = activeData.revenue;
+                trendChart.data.datasets[1].data = activeData.spend;
+                trendChart.update();
+
+                // Update Top KPI cards dynamically
+                const kpis = trendDatasets[currentYearFilter].kpis;
+                if (kpis) {
+                    const revEl = document.getElementById('kpiRevenue');
+                    const cacEl = document.getElementById('kpiCac');
+                    const convEl = document.getElementById('kpiConvRate');
+                    const spendEl = document.getElementById('kpiSpend');
+
+                    if (revEl) revEl.textContent = kpis.rev;
+                    if (cacEl) cacEl.textContent = kpis.cac;
+                    if (convEl) convEl.textContent = kpis.conv;
+                    if (spendEl) spendEl.textContent = kpis.spend;
+                }
+            }
+
+            const btnMonthly = document.getElementById('btnMonthly');
+            const btnQuarterly = document.getElementById('btnQuarterly');
+
+            function setActiveButton(activeBtn, inactiveBtn) {
+                activeBtn.className = "px-4 py-1.5 text-xs font-bold bg-indigo-500/20 text-indigo-400 shadow-sm rounded-md border border-indigo-500/30 transition-all cursor-pointer";
+                inactiveBtn.className = "px-4 py-1.5 text-xs font-bold text-slate-400 hover:text-white transition-all cursor-pointer";
+            }
+
+            if (btnMonthly && btnQuarterly) {
+                btnMonthly.addEventListener('click', function() {
+                    currentMode = 'monthly';
+                    setActiveButton(btnMonthly, btnQuarterly);
+                    updateChartData();
+                });
+
+                btnQuarterly.addEventListener('click', function() {
+                    currentMode = 'quarterly';
+                    setActiveButton(btnQuarterly, btnMonthly);
+                    updateChartData();
+                });
+            }
+
+            // Channel Allocation Doughnut Chart
+            const ctxDoughnut = document.getElementById('channelAllocationChart').getContext('2d');
+            new Chart(ctxDoughnut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Digital Ads', 'Content SEO', 'Email Marketing', 'Events & PR'],
+                    datasets: [{
+                        data: [45, 25, 15, 15],
+                        backgroundColor: ['#22d3ee', '#818cf8', '#c084fc', '#f472b6'],
+                        borderColor: '#0f172a',
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '78%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const dateRangeSelect = document.getElementById('dateRange');
+            if (dateRangeSelect) {
+                dateRangeSelect.addEventListener('change', function(e) {
+                    currentYearFilter = e.target.value;
+                    updateChartData();
+                    showToast("Filter Applied", `Showing metrics for ${e.target.options[e.target.selectedIndex].text}`);
+                });
+            }
+
+            // Toast system
+            function showToast(title, message) {
+                const toast = document.getElementById('toastNotification');
+                const titleEl = document.getElementById('toastTitle');
+                const msgEl = document.getElementById('toastMessage');
+
+                if (titleEl) titleEl.textContent = title;
+                if (msgEl) msgEl.textContent = message;
+                
+                if (toast) {
+                    toast.classList.remove('translate-y-20', 'opacity-0');
+                    toast.classList.add('translate-y-0', 'opacity-100');
+                    
+                    setTimeout(() => {
+                        toast.classList.remove('translate-y-0', 'opacity-100');
+                        toast.classList.add('translate-y-20', 'opacity-0');
+                    }, 3000);
+                }
+            }
+
+            // Export button interaction
+            const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    showToast("Export Initiated", "Generating executive PDF summary report...");
+                });
+            }
+
+            // Report modal interaction
+            const reportModal = document.getElementById('reportModal');
+            const viewReportBtn = document.getElementById('viewReportBtn');
+            const closeReportModal = document.getElementById('closeReportModal');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+
+            if (viewReportBtn && reportModal) {
+                viewReportBtn.addEventListener('click', () => {
+                    reportModal.classList.remove('hidden');
+                });
+                [closeReportModal, closeModalBtn].forEach(btn => {
+                    if (btn) btn.addEventListener('click', () => reportModal.classList.add('hidden'));
+                });
+            }
+        });
+    </script>
+</body>
+</html>
